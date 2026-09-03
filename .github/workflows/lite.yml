@@ -30,8 +30,8 @@ jobs:
 
       # sparse blobless clone of the ten files the bundler reads, into src/.
       # caesium is private and GITHUB_TOKEN cannot read another repo, so this
-      # needs CAESIUM_TOKEN: a fine-grained PAT with read-only Contents on
-      # gays-studio/caesium, stored as a secret on this repo.
+      # needs GH_TOKEN: a fine-grained PAT with read-only Contents on
+      # gays-studio/caesium, stored as a repository secret on this repo.
       - name: fetch sources
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}

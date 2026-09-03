@@ -21,6 +21,28 @@ dest="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/src"
 # needs no ARG_CONV_EXCL sparing.
 if [ -n "${GH_TOKEN:-}" ]; then
   repo="https://x-access-token:${GH_TOKEN}@${repo#https://}"
+elif [ -n "${CI:-}" ]; then
+  # An actions secret that does not reach the job expands to an empty string
+  # rather than failing the step, so without this the clone runs with no
+  # credentials at all and dies on git's username prompt, which says nothing
+  # about the real problem.
+  cat >&2 <<'MSG'
+fetch_src.sh: GH_TOKEN is empty, so secrets.GH_TOKEN never reached this job.
+Check, in order:
+  * the secret sits under Settings > Secrets and variables > Actions, on the
+    "Repository secrets" tab. Not the Variables tab beside it, which the
+    workflow would have to read as vars.GH_TOKEN, and not the Dependabot or
+    Codespaces tabs, which are separate stores Actions cannot see.
+  * it is not scoped to an environment. This job declares no environment, so
+    environment secrets stay invisible to it.
+  * the run started after the secret was saved. Secrets are read when the job
+    starts, so an older run keeps failing until you re-run it.
+  * the run is not from a fork. Fork-triggered runs are handed no secrets
+    besides GITHUB_TOKEN.
+Once the token arrives it still needs read access to gays-studio/caesium:
+Contents: Read-only if it is a fine-grained PAT, the repo scope if classic.
+MSG
+  exit 1
 fi
 
 rm -rf "$dest"
