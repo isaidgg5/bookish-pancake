@@ -306,9 +306,6 @@
 
   exit.addEventListener('click', closePlayer);
 
-  /* loader.js points cards at iframe.html, which does not exist in this build:
-     catch those clicks and play in-page instead. Cards with their own url still
-     open in a new tab. */
   document.addEventListener('click', event => {
     const card = event.target.closest ? event.target.closest('a.game-card') : null;
     if (!card) return;
