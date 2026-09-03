@@ -34,7 +34,7 @@ jobs:
       # gays-studio/caesium, stored as a secret on this repo.
       - name: fetch sources
         env:
-          GH_TOKEN: ${{ secrets.CAESIUM_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: sh tools/fetch_src.sh
 
       # fails the run if the bundle is missing the credits modal, still points at
