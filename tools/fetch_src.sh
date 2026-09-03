@@ -8,26 +8,23 @@
 # in CI set GH_TOKEN to a token with read access to it.
 #
 # Patterns go in on stdin rather than argv because git bash rewrites leading-slash
-# arguments into windows paths, which silently checks out nothing. ARG_CONV_EXCL
-# spares the --config argument below from the same rewriting, and nothing else:
-# excluding everything would send git a dest path it resolves against the drive
-# root. Both variables are ignored off windows.
+# arguments into windows paths, which silently checks out nothing.
 set -eu
-export MSYS2_ARG_CONV_EXCL='http.'
 
 repo="${1:-https://github.com/gays-studio/caesium.git}"
 ref="${2:-main}"
 dest="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/src"
 
-# --config, unlike -c, sticks in src/.git/config, so the lazy blob fetches a
-# blobless clone makes during checkout are authenticated too
-set --
+# token goes in the clone URL, which lands in src/.git/config's remote, so the
+# lazy blob fetches a blobless clone makes during checkout are authenticated too.
+# git bash's path rewriting skips URLs, so unlike the old --config argument this
+# needs no ARG_CONV_EXCL sparing.
 if [ -n "${GH_TOKEN:-}" ]; then
-  repo="https://ajtabjs:${GH_TOKEN}@github.com/gays-studio/caesium.git"
+  repo="https://x-access-token:${GH_TOKEN}@${repo#https://}"
 fi
 
 rm -rf "$dest"
-git clone "$@" --depth 1 --branch "$ref" --filter=blob:none --sparse "$repo" "$dest"
+git clone --depth 1 --branch "$ref" --filter=blob:none --sparse "$repo" "$dest"
 git -C "$dest" sparse-checkout set --no-cone --stdin <<'PATTERNS'
 /index.html
 /credits.html
