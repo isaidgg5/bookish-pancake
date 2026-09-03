@@ -35,24 +35,23 @@
     position: relative;
     width: 100%;
     max-width: 520px;
-    max-height: 80vh;
-    overflow-y: auto;
     padding: 20px 30px 30px;
     text-align: center;
     background-color: var(--ctp-surface0);
     border: 2px solid var(--ctp-surface2);
     border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
-    scrollbar-width: thin;
-    scrollbar-color: var(--ctp-mauve) transparent;
 }
 
 .modal h1 {
     font-size: 32px;
 }
 
+/* OnestBold is its own family at weight 400, so the h2 default of bold would
+   have the browser synthesise a second layer of bold over the bold face */
 .modal h2 {
     font-family: OnestBold;
+    font-weight: normal;
     font-size: 20px;
     color: var(--ctp-lavender);
     margin-bottom: 4px;
