@@ -1,0 +1,56 @@
+name: lite bundle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/**
+      - .github/workflows/lite.yml
+  # the sources live in another repo, so a push there cannot trigger this
+  schedule:
+    - cron: '41 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: lite-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # sparse blobless clone of the ten files the bundler reads, into src/
+      - name: fetch sources
+        run: sh tools/fetch_src.sh
+
+      # fails the run if the bundle is missing the credits modal, still points at
+      # the request form, or left a local file unembedded
+      - name: bundle
+        run: python tools/build_lite.py -o lite.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lite
+          path: lite.html
+
+      - name: commit
+        run: |
+          if [ -z "$(git status --porcelain -- lite.html)" ]; then
+            echo "lite.html is unchanged"
+            exit 0
+          fi
+          source_sha="$(git -C src rev-parse --short HEAD)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lite.html
+          git commit -m "rebuild lite.html from caesium@${source_sha}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
