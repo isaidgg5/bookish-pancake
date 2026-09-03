@@ -23,7 +23,7 @@ dest="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/src"
 # blobless clone makes during checkout are authenticated too
 set --
 if [ -n "${GH_TOKEN:-}" ]; then
-  repo="https://x-access-token:${GH_TOKEN}@github.com/gays-studio/caesium.git"
+  repo="https://ajtabjs:${GH_TOKEN}@github.com/gays-studio/caesium.git"
 fi
 
 rm -rf "$dest"
