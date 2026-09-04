@@ -38,6 +38,17 @@
   const player = document.getElementById('game-player');
   const frame = document.getElementById('gameframe');
   const exit = document.getElementById('player-exit');
+  const tabs = document.getElementById('tabs');
+  const handle = document.getElementById('tabs-handle');
+  const actions = document.getElementById('tab-actions');
+  const fullscreenBtn = document.getElementById('action-fullscreen');
+  const downloadBtn = document.getElementById('action-download');
+  const reloadBtn = document.getElementById('action-reload');
+
+  /* prepared source of whatever is in the frame, held for the download action */
+  let currentHtml = null;
+  let currentId = null;
+  let currentName = null;
 
   function rewriteAbsolutePaths(html, cdnOrigin) {
     return html
@@ -76,12 +87,21 @@
   }
 
   function closePlayer() {
+    setTabsOpen(false);
+    if (isFullscreen()) exitFullscreen();
     player.removeAttribute('data-open');
     if (!backdrop.hasAttribute('data-open')) document.body.removeAttribute('data-locked');
+    currentHtml = null;
+    currentId = null;
+    downloadBtn.disabled = true;
     writeToFrame('<html><body style="background:#11111b"></body></html>');
   }
 
   function loadGame(id, name) {
+    currentId = id;
+    currentName = name;
+    currentHtml = null;
+    downloadBtn.disabled = true;
     openPlayer();
     writeToFrame(message(name || 'Loading...', 'Fetching the game.'));
 
@@ -93,13 +113,102 @@
       })
       .then(html => {
         const baseHref = pageUrl.substring(0, pageUrl.lastIndexOf('/') + 1);
-        writeToFrame(prepareHtml(html, baseHref));
+        currentHtml = prepareHtml(html, baseHref);
+        writeToFrame(currentHtml);
+        downloadBtn.disabled = false;
       })
       .catch(err => {
         console.error('Loading error:', err);
         writeToFrame(message('Game Load Failed', `${id} &mdash; ${err.message}`));
       });
   }
+
+  /* ---------- action tab ---------- */
+  function setTabsOpen(open) {
+    tabs.classList.toggle('open', open);
+    actions.inert = !open;
+    handle.setAttribute('aria-expanded', String(open));
+    handle.setAttribute('aria-label', open ? 'Close actions' : 'Open actions');
+  }
+
+  const labelTimers = new Map();
+
+  function setLabel(button, text) {
+    button.querySelector('.tab-action-label').textContent = text;
+  }
+
+  /* shows text on a button for a moment, then puts the original label back */
+  function flashLabel(button, text, original) {
+    setLabel(button, text);
+    clearTimeout(labelTimers.get(button));
+    labelTimers.set(button, setTimeout(() => setLabel(button, original), 1500));
+  }
+
+  function isFullscreen() {
+    return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+  }
+
+  function exitFullscreen() {
+    const leave = document.exitFullscreen || document.webkitExitFullscreen;
+    if (leave) leave.call(document);
+  }
+
+  /* The overlay, not the document: unlike iframe.html this page is the game list,
+     and the overlay holds both the frame and this tab, so the tab stays reachable. */
+  function requestFullscreen() {
+    const enter = player.requestFullscreen || player.webkitRequestFullscreen;
+    if (!enter) return Promise.reject(new Error('not supported by this browser'));
+    try {
+      return Promise.resolve(enter.call(player));
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  function toggleFullscreen() {
+    if (isFullscreen()) {
+      exitFullscreen();
+      setTabsOpen(false);
+      return;
+    }
+
+    requestFullscreen()
+      .then(() => setTabsOpen(false))
+      .catch(err => {
+        console.error('Fullscreen failed:', err);
+        flashLabel(fullscreenBtn, 'fullscreen blocked', 'fullscreen');
+      });
+  }
+
+  function downloadHtml() {
+    if (!currentHtml) return;
+    const blob = new Blob([currentHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${(currentId || 'game').replace(/[^a-z0-9._-]/gi, '-')}.html`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function syncFullscreenLabel() {
+    const active = isFullscreen();
+    fullscreenBtn.classList.toggle('active', active);
+    setLabel(fullscreenBtn, active ? 'exit fullscreen' : 'fullscreen');
+  }
+
+  handle.addEventListener('click', () => setTabsOpen(!tabs.classList.contains('open')));
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
+  downloadBtn.addEventListener('click', downloadHtml);
+  reloadBtn.addEventListener('click', () => {
+    if (currentId) loadGame(currentId, currentName);
+    setTabsOpen(false);
+  });
+
+  document.addEventListener('fullscreenchange', syncFullscreenLabel);
+  document.addEventListener('webkitfullscreenchange', syncFullscreenLabel);
 
   exit.addEventListener('click', closePlayer);
 
@@ -117,9 +226,11 @@
     loadGame(id, card.dataset.name);
   });
 
+  /* innermost thing first: tab, then player, then credits */
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
-    if (player.hasAttribute('data-open')) closePlayer();
+    if (tabs.classList.contains('open')) setTabsOpen(false);
+    else if (player.hasAttribute('data-open')) closePlayer();
     else if (backdrop.hasAttribute('data-open')) closeCredits();
   });
 }());

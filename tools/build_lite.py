@@ -207,6 +207,32 @@ def overlay_markup(credits: str) -> str:
 <div class="player" id="game-player">
   <button type="button" class="player-exit" id="player-exit">&larr; back</button>
   <iframe id="gameframe" title="Game"></iframe>
+
+  <!-- slide-out action tab, ported from iframe.html -->
+  <div class="tabs" id="tabs">
+    <button class="tabs-handle" id="tabs-handle" type="button" aria-expanded="false"
+            aria-controls="tab-actions" aria-label="Open actions">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg>
+    </button>
+
+    <div class="tab-actions" id="tab-actions" inert>
+      <button class="tab-action" id="action-fullscreen" type="button">
+        <svg class="icon-enter" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2H2v4M10 2h4v4M14 10v4h-4M2 10v4h4" /></svg>
+        <svg class="icon-exit" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h4V2M14 6h-4V2M10 14v-4h4M6 14v-4H2" /></svg>
+        <span class="tab-action-label">fullscreen</span>
+      </button>
+
+      <button class="tab-action" id="action-download" type="button" disabled>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v7.5M4.5 6.5 8 10l3.5-3.5M2.5 13h11" /></svg>
+        <span class="tab-action-label">download html</span>
+      </button>
+
+      <button class="tab-action" id="action-reload" type="button">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.7-3.77M13.5 3v2.5H11" /></svg>
+        <span class="tab-action-label">reload game</span>
+      </button>
+    </div>
+  </div>
 </div>
 """
 
