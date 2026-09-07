@@ -186,7 +186,8 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
         a.href = game.url;
       } else {
         const isFlash = game.flash ? 'true' : 'false';
-        a.href = `./iframe.html?id=${game.id}&flash=${isFlash}`;
+        const cdn = game.cdn || 'main';
+        a.href = `./iframe.html?id=${game.id}&flash=${isFlash}&cdn=${cdn}`;
       }
 
       const img = document.createElement('img');
