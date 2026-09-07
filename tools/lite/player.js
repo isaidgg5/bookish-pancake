@@ -1,10 +1,8 @@
-/* Behaviour that only exists in the single-file lite build (see tools/build_lite.py):
-   a credits modal, and a game player overlay standing in for iframe.html.
-   __GAME_CDN__ is replaced at build time with the base url from js/iframe.js. */
-(function () {
-  const gameCdn = __GAME_CDN__;
 
-  /* ---------- credits modal ---------- */
+(function () {
+  const gameCdns = __GAME_CDNS__;
+
+  
   const backdrop = document.getElementById('credits-modal');
   const modalClose = document.getElementById('credits-close');
   let lastFocused = null;
@@ -34,7 +32,7 @@
     if (event.target === backdrop) closeCredits();
   });
 
-  /* ---------- game player ---------- */
+  
   const player = document.getElementById('game-player');
   const frame = document.getElementById('gameframe');
   const exit = document.getElementById('player-exit');
@@ -45,9 +43,10 @@
   const downloadBtn = document.getElementById('action-download');
   const reloadBtn = document.getElementById('action-reload');
 
-  /* prepared source of whatever is in the frame, held for the download action */
+  
   let currentHtml = null;
   let currentId = null;
+  let currentCdn = null;
   let currentName = null;
 
   function rewriteAbsolutePaths(html, cdnOrigin) {
@@ -97,15 +96,17 @@
     writeToFrame('<html><body style="background:#11111b"></body></html>');
   }
 
-  function loadGame(id, name) {
+  function loadGame(id, cdn, name) {
     currentId = id;
+    currentCdn = cdn;
     currentName = name;
     currentHtml = null;
     downloadBtn.disabled = true;
     openPlayer();
     writeToFrame(message(name || 'Loading...', 'Fetching the game.'));
 
-    const pageUrl = `${gameCdn}/${id}/index.html`;
+    const baseUrl = gameCdns[cdn] || gameCdns.main;
+    const pageUrl = `${baseUrl}/${id}/index.html`;
     fetch(pageUrl)
       .then(res => {
         if (!res.ok) throw new Error(`Could not find game at ${pageUrl}`);
@@ -123,7 +124,7 @@
       });
   }
 
-  /* ---------- action tab ---------- */
+  
   function setTabsOpen(open) {
     tabs.classList.toggle('open', open);
     actions.inert = !open;
@@ -137,7 +138,7 @@
     button.querySelector('.tab-action-label').textContent = text;
   }
 
-  /* shows text on a button for a moment, then puts the original label back */
+  
   function flashLabel(button, text, original) {
     setLabel(button, text);
     clearTimeout(labelTimers.get(button));
@@ -153,8 +154,7 @@
     if (leave) leave.call(document);
   }
 
-  /* The overlay, not the document: unlike iframe.html this page is the game list,
-     and the overlay holds both the frame and this tab, so the tab stays reachable. */
+  
   function requestFullscreen() {
     const enter = player.requestFullscreen || player.webkitRequestFullscreen;
     if (!enter) return Promise.reject(new Error('not supported by this browser'));
@@ -203,7 +203,7 @@
   fullscreenBtn.addEventListener('click', toggleFullscreen);
   downloadBtn.addEventListener('click', downloadHtml);
   reloadBtn.addEventListener('click', () => {
-    if (currentId) loadGame(currentId, currentName);
+    if (currentId) loadGame(currentId, currentCdn, currentName);
     setTabsOpen(false);
   });
 
@@ -212,21 +212,21 @@
 
   exit.addEventListener('click', closePlayer);
 
-  /* loader.js points cards at iframe.html, which does not exist in this build:
-     catch those clicks and play in-page instead. Cards with their own url still
-     open in a new tab. */
+  
   document.addEventListener('click', event => {
     const card = event.target.closest ? event.target.closest('a.game-card') : null;
     if (!card) return;
     const query = (card.getAttribute('href') || '').match(/iframe\.html\?(.*)$/);
     if (!query) return;
-    const id = new URLSearchParams(query[1].replace(/&amp;/g, '&')).get('id');
+    const qs = new URLSearchParams(query[1].replace(/&amp;/g, '&'));
+    const id = qs.get('id');
+    const cdn = qs.get('cdn') || 'main';
     if (!id) return;
     event.preventDefault();
-    loadGame(id, card.dataset.name);
+    loadGame(id, cdn, card.dataset.name);
   });
 
-  /* innermost thing first: tab, then player, then credits */
+  
   document.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return;
     if (tabs.classList.contains('open')) setTabsOpen(false);

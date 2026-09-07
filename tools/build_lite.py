@@ -53,7 +53,7 @@ LOADER_TAG = re.compile(
 ANALYTICS_TAG = re.compile(r"""[ \t]*<script[^>]+counter\.dev[^>]*>\s*</script>\n?""", re.I)
 SCRIPT_BLOCK = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.I | re.S)
 HTML_COMMENT = re.compile(r"<!--(?!\[if).*?-->", re.S)
-GAME_CDN = re.compile(r"""["']main["']\s*:\s*["']([^"']+)["']""")
+GAME_CDN = re.compile(r"""["']([\w-]+)["']\s*:\s*["']([^"']+)["']""")
 
 SOURCES = (
     "index.html",
@@ -148,11 +148,15 @@ def inline_html_assets(html: str) -> str:
     return HTML_ASSET.sub(replace, html)
 
 
-def game_cdn(path: Path) -> str:
-    match = GAME_CDN.search(read(path))
-    if not match:
-        sys.exit(f"{path.name}: could not find the game cdn base url")
-    return match.group(1)
+def game_cdns(path: Path) -> str:
+    """Collect the {cdn: base-url} map from the urls table in js/iframe.js."""
+    text = read(path)
+    urls = {}
+    for cdn, base in GAME_CDN.findall(text):
+        urls[cdn] = base
+    if not urls or "main" not in urls:
+        sys.exit(f"{path.name}: could not find the game cdn base urls")
+    return json.dumps(urls)
 
 
 def credits_markup(path: Path) -> str:
@@ -208,7 +212,6 @@ def overlay_markup(credits: str) -> str:
   <button type="button" class="player-exit" id="player-exit">&larr; back</button>
   <iframe id="gameframe" title="Game"></iframe>
 
-  <!-- slide-out action tab, ported from iframe.html -->
   <div class="tabs" id="tabs">
     <button class="tabs-handle" id="tabs-handle" type="button" aria-expanded="false"
             aria-controls="tab-actions" aria-label="Open actions">
@@ -266,7 +269,7 @@ def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
     html = STYLESHEET_TAG.sub("", html)
 
     player = read(TEMPLATES / "player.js").replace(
-        "__GAME_CDN__", json.dumps(game_cdn(SRC / "js" / "iframe.js"))
+        "__GAME_CDNS__", game_cdns(SRC / "js" / "iframe.js")
     )
     scripts = (
         overlay_markup(credits_markup(SRC / "credits.html"))
