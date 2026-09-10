@@ -141,7 +141,11 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();
       } catch (e) {
-        console.warn(`Failed to fetch ${url}:`, e);
+        alert(`Failed to fetch ${url}: ${e}\n\n if you see this its either blocked or i messed up :(`);
+        if (e instanceof SyntaxError) {
+          alert(`Failed to load game data: invalid JSON from ${url}\n\n if you see this i either messed up the json or your thing blocked :(`);
+          return [];
+        }
       }
     }
     console.error("All URLs failed for:", urls[0]);
