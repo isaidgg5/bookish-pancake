@@ -298,6 +298,7 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
   let currentId = null;
   let currentCdn = null;
   let currentName = null;
+  let abortController = null;
 
   function rewriteAbsolutePaths(html, cdnOrigin) {
     return html
@@ -338,12 +339,23 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
   function closePlayer() {
     setTabsOpen(false);
     if (isFullscreen()) exitFullscreen();
+    stopFrame();
+    if (abortController) abortController.abort();
+    abortController = null;
     player.removeAttribute('data-open');
     if (!backdrop.hasAttribute('data-open')) document.body.removeAttribute('data-locked');
     currentHtml = null;
     currentId = null;
     downloadBtn.disabled = true;
     writeToFrame('<html><body style="background:#11111b"></body></html>');
+  }
+
+  function stopFrame() {
+    try {
+      if (frame.contentWindow && frame.contentWindow.stop) frame.contentWindow.stop();
+    } catch (err) {
+      console.error('Failed to stop frame:', err);
+    }
   }
 
   function loadGame(id, cdn, name) {
@@ -353,11 +365,15 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
     currentHtml = null;
     downloadBtn.disabled = true;
     openPlayer();
+
+    stopFrame();
+    if (abortController) abortController.abort();
+    abortController = new AbortController();
     writeToFrame(message(name || 'Loading...', 'Fetching the game.'));
 
     const baseUrl = gameCdns[cdn] || gameCdns.main;
     const pageUrl = `${baseUrl}/${id}/index.html`;
-    fetch(pageUrl)
+    fetch(pageUrl, { signal: abortController.signal })
       .then(res => {
         if (!res.ok) throw new Error(`Could not find game at ${pageUrl}`);
         return res.text();
@@ -369,6 +385,7 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
         downloadBtn.disabled = false;
       })
       .catch(err => {
+        if (err.name === 'AbortError') return;
         console.error('Loading error:', err);
         writeToFrame(message('Game Load Failed', `${id} &mdash; ${err.message}`));
       });
