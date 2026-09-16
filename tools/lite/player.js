@@ -62,7 +62,12 @@
       html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: auto !important; }
       body > * { max-width: 100% !important; }
     </style>`;
-    return `<base href="${baseHref}">${forcedStyles}${rewriteAbsolutePaths(html, cdnOrigin)}`;
+    let modified = rewriteAbsolutePaths(html, cdnOrigin);
+    const hasBaseHref = /<base\b[^>]*\bhref[\s=]/i.test(modified);
+    if (hasBaseHref) {
+      return `${forcedStyles}${modified}`;
+    }
+    return `<base href="${baseHref}">${forcedStyles}${modified}`;
   }
 
   function writeToFrame(html) {
