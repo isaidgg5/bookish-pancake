@@ -176,6 +176,47 @@ def page_css(path: Path) -> str:
     return match.group(1).strip() if match else ""
 
 
+def scope_css(css: str, scope: str) -> str:
+    """Prefix every selector with scope so subpage styles stay in their modal.
+
+    Without this, rules like `main { max-width: 760px }` or the `*` reset
+    leak onto lite's own game grid. @media blocks are scoped recursively;
+    other at-rules are passed through. (Assumes no braces inside strings.)
+    """
+    out = []
+    i, n = 0, len(css)
+    while i < n:
+        if css.startswith("/*", i):
+            end = css.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            out.append(css[i:end])
+            i = end
+            continue
+        brace = css.find("{", i)
+        if brace == -1:
+            out.append(css[i:])
+            break
+        header = css[i:brace].strip()
+        depth = 1
+        j = brace + 1
+        while j < n and depth:
+            if css[j] == "{":
+                depth += 1
+            elif css[j] == "}":
+                depth -= 1
+            j += 1
+        body = css[brace + 1:j - 1]
+        if header.startswith("@media"):
+            out.append(f"{header}{{{scope_css(body, scope)}}}")
+        elif header.startswith("@"):
+            out.append(f"{header}{{{body}}}")
+        elif header:
+            selectors = [s.strip() for s in header.split(",") if s.strip()]
+            out.append(", ".join(f"{scope} {s}" for s in selectors) + f"{{{body}}}")
+        i = j
+    return "".join(out)
+
+
 def subpage_markup(path: Path, name: str) -> str:
     """Lift a subpage's own content out of its html file for a modal.
 
@@ -294,8 +335,8 @@ def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
     html = PAGE_LINK.sub(lambda m: f"{m.group(1)}{m.group(2)}#{m.group(2)}", html)
 
     css = read(SRC / "css" / "styles.css")
-    for subpage in ("credits.html", "changelog.html"):
-        css += "\n" + page_css(SRC / subpage)
+    for subpage, name in (("credits.html", "credits"), ("changelog.html", "changelog")):
+        css += "\n" + scope_css(page_css(SRC / subpage), f"#{name}-modal")
     css += "\n" + read(TEMPLATES / "lite.css")
     if minify:
         css = minify_css(css)

@@ -79,10 +79,30 @@
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
 }
 
-/* Roomier variant for the changelog / request panels. */
+/* Roomier variant for the changelog panel. */
 .modal-wide {
     max-width: 700px;
     text-align: left;
+}
+
+/* The credits modal is a dense roster: drop the inter-line spacing so the
+   whole list fits on screen without scrolling. */
+#credits-modal .content-panel {
+    padding: 16px 20px;
+}
+
+#credits-modal .content-panel h2 {
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+}
+
+#credits-modal .content-panel h2:not(:first-child) {
+    margin-top: 12px;
+}
+
+#credits-modal .content-panel p {
+    margin-bottom: 0;
+    line-height: 1.4;
 }
 
 .modal h1 {
