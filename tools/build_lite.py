@@ -73,7 +73,7 @@ SOURCES = (
 )
 # Optional: only the redesign carries rotating header quotes.
 OPTIONAL_SOURCES = ("js/quote.js",)
-TEMPLATE_SOURCES = ("lite.css", "player.js")
+TEMPLATE_SOURCES = ("lite.css", "player.js", "dmca.html")
 
 EMBEDDED: list[tuple[str, int]] = []
 
@@ -240,7 +240,7 @@ def rewrite_footer(html: str) -> str:
     """Swap the footer link row for plain text: dmca + made with <3."""
     pattern = re.compile(r"""<div class="footer-links">.*?</div>""", re.I | re.S)
     replacement = """<div class="footer-links">
-        <span>dmca</span> |
+        <button type="button" class="modal-link" data-opens-dmca aria-haspopup="dialog">dmca</button> |
         <span>made with &lt;3</span>
     </div>"""
     html, count = pattern.subn(replacement, html)
@@ -293,10 +293,11 @@ def modal_markup(name: str, content: str, wide: bool = False) -> str:
 """
 
 
-def overlay_markup(credits: str, changelog: str) -> str:
+def overlay_markup(credits: str, changelog: str, dmca: str) -> str:
     return (
         modal_markup("credits", credits)
         + modal_markup("changelog", changelog, wide=True)
+        + modal_markup("dmca", dmca)
         + """<div class="player" id="game-player">
   <button type="button" class="player-exit" id="player-exit">&larr; back</button>
   <iframe id="gameframe" title="Game"></iframe>
@@ -373,6 +374,7 @@ def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
     scripts = overlay_markup(
         subpage_markup(SRC / "credits.html", "credits"),
         subpage_markup(SRC / "changelog.html", "changelog"),
+        read(TEMPLATES / "dmca.html"),
     ) + f"\n<script>\n{read(SRC / 'js' / 'loader.js')}\n</script>\n"
     quote_path = SRC / "js" / "quote.js"
     if quote_path.is_file():
@@ -401,8 +403,10 @@ def verify(html: str, embed: bool) -> None:
     for required in (
         'id="credits-modal"',
         'id="changelog-modal"',
+        'id="dmca-modal"',
         "data-opens-credits",
         "data-opens-changelog",
+        "data-opens-dmca",
         'id="gameframe"',
         'id="game-count"',
         "filterGames",

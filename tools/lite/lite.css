@@ -105,6 +105,17 @@
     line-height: 1.4;
 }
 
+/* Short notice modal: readable spacing and a link color that works on the
+   dark modal background. */
+#dmca-modal p {
+    margin: 10px 0;
+    line-height: 1.5;
+}
+
+#dmca-modal a {
+    color: var(--ctp-lavender);
+}
+
 .modal h1 {
     font-size: 32px;
 }
