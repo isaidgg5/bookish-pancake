@@ -12,7 +12,8 @@
 set -eu
 
 repo="${1:-https://github.com/gays-studio/caesium.git}"
-ref="${2:-main}"
+# the redesign work lives on the Erik-Redesign branch; lite mirrors it.
+ref="${2:-Erik-Redesign}"
 dest="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)/src"
 
 # token goes in the clone URL, which lands in src/.git/config's remote, so the

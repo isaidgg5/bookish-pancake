@@ -57,6 +57,18 @@ QUOTE_TAG = re.compile(
     r"""[ \t]*<script[^>]+src=["'][^"']*js/quote\.js["'][^>]*>\s*</script>\n?""", re.I
 )
 ANALYTICS_TAG = re.compile(r"""[ \t]*<script[^>]+counter\.dev[^>]*>\s*</script>\n?""", re.I)
+# The redesign ships its own DMCA modal (a .welcome-modal backed by an inline
+# script) so the footer "dmca" button works on the real site. lite injects its
+# own modal wired to player.js instead, so the built-in copy -- which would
+# duplicate the dmca-modal id -- has to go (see strip_site_dmca).
+SITE_DMCA_MODAL = re.compile(
+    r"""[ \t]*<div class="welcome-modal" id="dmca-modal"[^>]*>.*?</div>\s*</div>\s*\n?""",
+    re.I | re.S,
+)
+SITE_DMCA_SCRIPT = re.compile(
+    r"""[ \t]*<script>\s*\(\(\)\s*=>\s*\{[\s\S]*?getElementById\(['"]dmca-open['"]\)[\s\S]*?</script>\s*\n?""",
+    re.I,
+)
 SITE_NAV = re.compile(r"""<nav\b[^>]*>.*?</nav>""", re.I | re.S)
 STYLE_BLOCK = re.compile(r"<style\b[^>]*>(.*?)</style>", re.I | re.S)
 SCRIPT_BLOCK = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.I | re.S)
@@ -262,6 +274,23 @@ def drop_request_link(html: str) -> str:
     return html
 
 
+def strip_site_dmca(html: str) -> str:
+    """Drop the redesign's built-in DMCA modal and its inline script.
+
+    The site wires its own DMCA modal through a footer button and a small
+    inline script. lite replaces that footer row and injects its own modal,
+    so keeping the built-in copy would leave two elements claiming the
+    dmca-modal id. Pre-redesign index.html has no built-in modal; that case
+    is left alone.
+    """
+    html, n1 = SITE_DMCA_MODAL.subn("", html)
+    html, n2 = SITE_DMCA_SCRIPT.subn("", html)
+    if n1 or n2:
+        return html
+    print("note: no built-in DMCA modal in index.html; lite's own stays sole owner", file=sys.stderr)
+    return html
+
+
 def subpage_link_to_button(html: str, page: str) -> str:
     """Turn every link to a subpage into a button that opens its modal."""
     pattern = re.compile(
@@ -342,6 +371,7 @@ def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
         html = subpage_link_to_button(html, page)
     html = drop_request_link(html)
     html = rewrite_footer(html)
+    html = strip_site_dmca(html)
     if embed:
         html = inline_html_assets(html)
     else:
@@ -393,6 +423,8 @@ def verify(html: str, embed: bool) -> None:
     markup = SCRIPT_BLOCK.sub("", html)
     if "request.html" in html or re.search(r"request form", markup, re.I):
         problems.append("the request form is still referenced")
+    if "dmca-open" in html:
+        problems.append("the site's built-in DMCA modal is still embedded")
     for page in ("credits", "changelog"):
         if f"{page}.html" in html:
             problems.append(f"the {page} page is still linked")
