@@ -85,35 +85,20 @@
     text-align: left;
 }
 
-/* The credits modal is a dense roster: drop the inter-line spacing so the
-   whole list fits on screen without scrolling. */
-#credits-modal .content-panel {
-    padding: 16px 20px;
-}
-
-#credits-modal .content-panel h2 {
-    margin-bottom: 6px;
-    padding-bottom: 4px;
-}
-
-#credits-modal .content-panel h2:not(:first-child) {
-    margin-top: 12px;
-}
-
-#credits-modal .content-panel p {
-    margin-bottom: 0;
-    line-height: 1.4;
-}
-
-/* The site's own DMCA notice is a light warning panel (the .welcome-modal in
-   the redesign's index.html): #fdfaf1 pane, #6a7a51 offset shadow, brick-red
-   close button. lite injects a player.js-driven modal instead, so these
-   overrides dress that copy up the same way, keeping dmca looking like the
-   redesign's HEAD rather than the dark subpage modals. */
+/* The credits, changelog and DMCA panels are all light boxes on the redesign's
+   HEAD (the .content-panel / .changelog-panel / .welcome-modal look): a #fdfaf1
+   box with a #6a7a51 offset shadow, dark text and a brick-red close button.
+   lite injects player.js-driven modals instead, so these shared overrides dress
+   all three copies up the same way rather than with the dark subpage modal
+   look. */
+#changelog-modal,
+#credits-modal,
 #dmca-modal {
     background-color: rgba(43, 43, 43, 0.55);
 }
 
+#changelog-modal .modal,
+#credits-modal .modal,
 #dmca-modal .modal {
     background-color: #fdfaf1;
     border: 2px solid #8c826b;
@@ -123,6 +108,33 @@
     max-width: 480px;
     padding: 28px;
     text-align: left;
+}
+
+/* The changelog modal stays wide (modal-wide already sets this, but the shared
+   #.../ .modal rule above would otherwise narrow it to the 480px pane). */
+#changelog-modal .modal {
+    max-width: 700px;
+}
+
+#changelog-modal .modal-close,
+#credits-modal .modal-close,
+#dmca-modal .modal-close {
+    border: 1px solid #8e3924;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 7px 10px;
+    position: absolute;
+    right: 12px;
+    top: 12px;
+}
+
+#changelog-modal .modal-close:hover,
+#credits-modal .modal-close:hover,
+#dmca-modal .modal-close:hover {
+    background-color: #8e3924;
+    color: #ffffff;
 }
 
 #dmca-modal .modal h2 {
@@ -143,21 +155,64 @@
     color: #1b4b72;
 }
 
-#dmca-modal .modal-close {
-    border: 1px solid #8e3924;
-    color: #ffffff;
-    font-family: inherit;
-    font-size: 1.1rem;
-    line-height: 1;
-    padding: 7px 10px;
-    position: absolute;
-    right: 12px;
-    top: 12px;
+/* Credits' content is the site's .content-panel nested inside a .modal; the
+   panel's own box and the page wrapper's centering are dropped so the shared
+   pane above reads as one box, while the roster stays compact. */
+#credits-modal .page-main {
+    margin: 0;
+    max-width: none;
+    padding: 0;
 }
 
-#dmca-modal .modal-close:hover {
-    background-color: #8e3924;
-    color: #ffffff;
+#credits-modal .content-panel {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+#credits-modal .content-panel h2 {
+    border-bottom: 1px dashed #8c826b;
+    color: #2b2b2b;
+    font-family: inherit;
+    font-size: 1.25rem;
+    font-weight: bold;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+}
+
+#credits-modal .content-panel h2:not(:first-child) {
+    margin-top: 14px;
+}
+
+#credits-modal .content-panel p {
+    color: #2b2b2b;
+    margin-bottom: 0;
+    line-height: 1.4;
+}
+
+/* The changelog modal mirrors credits: same light pane, with the nested
+   .changelog-panel de-boxed so its headings, separators and olive timestamps
+   read directly on the pane. */
+#changelog-modal .page-main {
+    margin: 0;
+    max-width: none;
+    padding: 0;
+}
+
+#changelog-modal .changelog-panel {
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+#changelog-modal .changelog-panel h2 {
+    border-bottom: 1px dashed #8c826b;
+    color: #2b2b2b;
+    font-family: inherit;
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin-bottom: 20px;
+    padding-bottom: 8px;
 }
 
 .modal h1 {
