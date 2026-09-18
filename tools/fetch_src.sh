@@ -1,7 +1,7 @@
 #!/bin/sh
 # Fetch just the files tools/build_lite.py reads out of the caesium repo.
 # Sparse and blobless: the site's history and img/games/** are large, and the
-# bundle only needs these ten files. The action runs this too, so a local build
+# bundle only needs these files. The action runs this too, so a local build
 # and a CI build read exactly the same sources.
 #
 # caesium is private: locally this leans on whatever credentials git already has,
@@ -50,10 +50,12 @@ git clone --depth 1 --branch "$ref" --filter=blob:none --sparse "$repo" "$dest"
 git -C "$dest" sparse-checkout set --no-cone --stdin <<'PATTERNS'
 /index.html
 /credits.html
+/changelog.html
 /comic.cur
 /css/styles.css
 /js/loader.js
 /js/iframe.js
+/js/quote.js
 /fonts/main.ttf
 /fonts/bold.ttf
 /img/cube-459.png

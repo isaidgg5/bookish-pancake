@@ -5,12 +5,12 @@ Expects a copy of the site in src/ and writes lite.html to the repo root.
 
 How lite.html differs from the multi-page site:
   * one file -- css, js, fonts, cursor and logo are inlined
-  * the request form link is dropped
-  * credits open in a modal instead of on their own page
+  * every subpage (credits, changelog, request) opens in a modal
+    instead of on its own page
   * games play in an in-page overlay, since iframe.html is not there to link to
 
 Usage: python tools/build_lite.py [-o lite.html] [--no-embed-assets]
-                                  [--no-analytics] [--no-minify]
+                                   [--no-analytics] [--no-minify]
 """
 
 from __future__ import annotations
@@ -47,10 +47,18 @@ CSS_URL = re.compile(r"""url\(\s*(['"]?)([^'")]+)\1\s*\)""")
 HTML_ASSET = re.compile(r"""(\s(?:src|href)\s*=\s*)(['"])([^'"]+)\2""")
 PAGE_LINK = re.compile(r"""(\shref\s*=\s*)(['"])\.?/?[\w-]+\.html[^'"]*\2""", re.I)
 STYLESHEET_TAG = re.compile(r"""[ \t]*<link[^>]+rel=["']stylesheet["'][^>]*>\n?""", re.I)
+LOCAL_STYLESHEET_TAG = re.compile(
+    r"""[ \t]*<link[^>]+href=["'](?!https?:|data:)[^"']*\.css[^"']*["'][^>]*>\n?""", re.I
+)
 LOADER_TAG = re.compile(
     r"""[ \t]*<script[^>]+src=["'][^"']*js/loader\.js["'][^>]*>\s*</script>\n?""", re.I
 )
+QUOTE_TAG = re.compile(
+    r"""[ \t]*<script[^>]+src=["'][^"']*js/quote\.js["'][^>]*>\s*</script>\n?""", re.I
+)
 ANALYTICS_TAG = re.compile(r"""[ \t]*<script[^>]+counter\.dev[^>]*>\s*</script>\n?""", re.I)
+SITE_NAV = re.compile(r"""<nav\b[^>]*>.*?</nav>""", re.I | re.S)
+STYLE_BLOCK = re.compile(r"<style\b[^>]*>(.*?)</style>", re.I | re.S)
 SCRIPT_BLOCK = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.I | re.S)
 HTML_COMMENT = re.compile(r"<!--(?!\[if).*?-->", re.S)
 GAME_CDN = re.compile(r"""["']([\w-]+)["']\s*:\s*["']([^"']+)["']""")
@@ -58,10 +66,13 @@ GAME_CDN = re.compile(r"""["']([\w-]+)["']\s*:\s*["']([^"']+)["']""")
 SOURCES = (
     "index.html",
     "credits.html",
+    "changelog.html",
     "css/styles.css",
     "js/loader.js",
     "js/iframe.js",
 )
+# Optional: only the redesign carries rotating header quotes.
+OPTIONAL_SOURCES = ("js/quote.js",)
 TEMPLATE_SOURCES = ("lite.css", "player.js")
 
 EMBEDDED: list[tuple[str, int]] = []
@@ -159,18 +170,33 @@ def game_cdns(path: Path) -> str:
     return json.dumps(urls)
 
 
-def credits_markup(path: Path) -> str:
-    """Lift the credits page's own content out of credits.html for the modal."""
+def page_css(path: Path) -> str:
+    """Lift a subpage's inline <style> so its panel keeps its looks in lite."""
+    match = STYLE_BLOCK.search(read(path))
+    return match.group(1).strip() if match else ""
+
+
+def subpage_markup(path: Path, name: str) -> str:
+    """Lift a subpage's own content out of its html file for a modal.
+
+    The site header/nav are dropped: they link to sibling pages, which do
+    not exist next to a standalone file. Scripts and styles are handled
+    separately by page_script/page_css.
+    """
     body = read(path).split("</header>", 1)[-1].split("</body>", 1)[0]
     body = re.sub(r"</?body[^>]*>", "", body)
     body = HTML_COMMENT.sub("", body)
+    body = SITE_NAV.sub("", body)
+    body = SCRIPT_BLOCK.sub("", body)
+    body = STYLE_BLOCK.sub("", body)
     body = re.sub(r"^\s*(?:<br\s*/?>\s*)+", "", body).strip()
     if len(body) < 50:
-        sys.exit(f"{path.name}: could not find the credits content")
-    return re.sub(r"<h1(?![^>]*\bid=)", '<h1 id="credits-heading"', body, count=1)
+        sys.exit(f"{path.name}: could not find the {name} content")
+    return re.sub(r"<h([12])(?![^>]*\bid=)", f'<h\\1 id="{name}-heading"', body, count=1)
 
 
 def drop_request_link(html: str) -> str:
+    """Drop the request form link: the form does not ship in lite.html."""
     pattern = re.compile(
         r"""\s*<a[^>]*href=["'][^"']*request\.html[^"']*["'][^>]*>.*?</a>"""
         r"""\s*(?:<p class=["']dot["']>[^<]*</p>)?""",
@@ -182,33 +208,42 @@ def drop_request_link(html: str) -> str:
     return html
 
 
-def credits_link_to_button(html: str) -> str:
+def subpage_link_to_button(html: str, page: str) -> str:
+    """Turn every link to a subpage into a button that opens its modal."""
     pattern = re.compile(
-        r"""<a[^>]*href=["'][^"']*credits\.html[^"']*["'][^>]*>(.*?)</a>""", re.I | re.S
+        r"""<a[^>]*href=["'][^"']*""" + page + r"""\.html[^"']*["'][^>]*>(.*?)</a>""",
+        re.I | re.S,
     )
     html, count = pattern.subn(
         lambda m: (
-            '<button type="button" class="credits-link" data-opens-credits '
+            f'<button type="button" class="modal-link" data-opens-{page} '
             f'aria-haspopup="dialog">{m.group(1)}</button>'
         ),
         html,
     )
     if not count:
-        sys.exit("index.html: no credits link to turn into a modal")
+        print(f"warning: no {page} link to turn into a modal", file=sys.stderr)
     return html
 
 
-def overlay_markup(credits: str) -> str:
-    return f"""<div class="modal-backdrop" id="credits-modal" role="dialog" aria-modal="true"
-     aria-labelledby="credits-heading">
-  <div class="modal">
-    <button type="button" class="modal-close" id="credits-close"
-            aria-label="Close credits">&times;</button>
-    {credits}
+def modal_markup(name: str, content: str, wide: bool = False) -> str:
+    cls = "modal modal-wide" if wide else "modal"
+    return f"""<div class="modal-backdrop" id="{name}-modal" role="dialog" aria-modal="true"
+     aria-labelledby="{name}-heading">
+  <div class="{cls}">
+    <button type="button" class="modal-close" id="{name}-close"
+            aria-label="Close {name}">&times;</button>
+    {content}
   </div>
 </div>
+"""
 
-<div class="player" id="game-player">
+
+def overlay_markup(credits: str, changelog: str) -> str:
+    return (
+        modal_markup("credits", credits)
+        + modal_markup("changelog", changelog, wide=True)
+        + """<div class="player" id="game-player">
   <button type="button" class="player-exit" id="player-exit">&larr; back</button>
   <iframe id="gameframe" title="Game"></iframe>
 
@@ -238,6 +273,7 @@ def overlay_markup(credits: str) -> str:
   </div>
 </div>
 """
+    )
 
 
 def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
@@ -247,8 +283,9 @@ def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
     if not analytics:
         html = ANALYTICS_TAG.sub("", html)
 
+    for page in ("credits", "changelog"):
+        html = subpage_link_to_button(html, page)
     html = drop_request_link(html)
-    html = credits_link_to_button(html)
     if embed:
         html = inline_html_assets(html)
     else:
@@ -256,26 +293,37 @@ def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
     # ./index.html and friends are not next to a standalone file; send them to the top
     html = PAGE_LINK.sub(lambda m: f"{m.group(1)}{m.group(2)}#{m.group(2)}", html)
 
-    css = read(SRC / "css" / "styles.css") + "\n" + read(TEMPLATES / "lite.css")
+    css = read(SRC / "css" / "styles.css")
+    for subpage in ("credits.html", "changelog.html"):
+        css += "\n" + page_css(SRC / subpage)
+    css += "\n" + read(TEMPLATES / "lite.css")
     if minify:
         css = minify_css(css)
     if embed:
         css = inline_css_assets(css, SRC / "css")
     else:
         css = rebase_css_urls(css, SRC / "css", out_dir)
-    html, count = STYLESHEET_TAG.subn(f"<style>\n{css}\n</style>\n", html, count=1)
+    # Prefer the site's own stylesheet link so a font link keeps working;
+    # fall back to whatever stylesheet tag comes first.
+    html, count = LOCAL_STYLESHEET_TAG.subn(f"<style>\n{css}\n</style>\n", html, count=1)
+    if not count:
+        html, count = STYLESHEET_TAG.subn(f"<style>\n{css}\n</style>\n", html, count=1)
     if not count:
         sys.exit("index.html: no stylesheet link to inline")
-    html = STYLESHEET_TAG.sub("", html)
+    html = LOCAL_STYLESHEET_TAG.sub("", html)
 
     player = read(TEMPLATES / "player.js").replace(
         "__GAME_CDNS__", game_cdns(SRC / "js" / "iframe.js")
     )
-    scripts = (
-        overlay_markup(credits_markup(SRC / "credits.html"))
-        + f"\n<script>\n{read(SRC / 'js' / 'loader.js')}\n</script>\n"
-        + f"<script>\n{player}\n</script>\n"
-    )
+    scripts = overlay_markup(
+        subpage_markup(SRC / "credits.html", "credits"),
+        subpage_markup(SRC / "changelog.html", "changelog"),
+    ) + f"\n<script>\n{read(SRC / 'js' / 'loader.js')}\n</script>\n"
+    quote_path = SRC / "js" / "quote.js"
+    if quote_path.is_file():
+        scripts += f"<script>\n{read(quote_path)}\n</script>\n"
+    html = QUOTE_TAG.sub("", html)
+    scripts += f"<script>\n{player}\n</script>\n"
     html, count = LOADER_TAG.subn(lambda _: scripts, html, count=1)
     if not count:
         sys.exit("index.html: no loader.js tag to replace")
@@ -288,15 +336,18 @@ def verify(html: str, embed: bool) -> None:
     markup = SCRIPT_BLOCK.sub("", html)
     if "request.html" in html or re.search(r"request form", markup, re.I):
         problems.append("the request form is still referenced")
-    if "credits.html" in html:
-        problems.append("the credits page is still linked")
-    if re.search(r"""<link[^>]+rel=["']stylesheet""", html, re.I):
-        problems.append("a stylesheet is still linked instead of inlined")
+    for page in ("credits", "changelog"):
+        if f"{page}.html" in html:
+            problems.append(f"the {page} page is still linked")
+    if LOCAL_STYLESHEET_TAG.search(html):
+        problems.append("a local stylesheet is still linked instead of inlined")
     if re.search(r"""<script[^>]+src=["'](?!https?:)""", html, re.I):
         problems.append("a local script is still linked instead of inlined")
     for required in (
         'id="credits-modal"',
+        'id="changelog-modal"',
         "data-opens-credits",
+        "data-opens-changelog",
         'id="gameframe"',
         'id="game-count"',
         "filterGames",

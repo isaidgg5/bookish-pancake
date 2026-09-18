@@ -3,33 +3,50 @@
   const gameCdns = __GAME_CDNS__;
 
   
-  const backdrop = document.getElementById('credits-modal');
-  const modalClose = document.getElementById('credits-close');
+  const modalNames = ['credits', 'changelog'];
   let lastFocused = null;
 
-  function openCredits() {
+  function openModal(backdrop, closeBtn) {
     lastFocused = document.activeElement;
     backdrop.setAttribute('data-open', '');
     document.body.setAttribute('data-locked', '');
-    modalClose.focus();
+    closeBtn.focus();
   }
 
-  function closeCredits() {
+  function closeModal(backdrop) {
     backdrop.removeAttribute('data-open');
-    if (!player.hasAttribute('data-open')) document.body.removeAttribute('data-locked');
+    if (!player.hasAttribute('data-open')
+        && !document.querySelector('.modal-backdrop[data-open]')) {
+      document.body.removeAttribute('data-locked');
+    }
     if (lastFocused) lastFocused.focus();
   }
 
-  document.querySelectorAll('[data-opens-credits]').forEach(el => {
-    el.addEventListener('click', event => {
-      event.preventDefault();
-      openCredits();
-    });
-  });
+  function closeAnyModal() {
+    const open = document.querySelector('.modal-backdrop[data-open]');
+    if (open) {
+      const closeBtn = open.querySelector('.modal-close');
+      if (closeBtn) closeBtn.click();
+      else closeModal(open);
+      return true;
+    }
+    return false;
+  }
 
-  modalClose.addEventListener('click', closeCredits);
-  backdrop.addEventListener('click', event => {
-    if (event.target === backdrop) closeCredits();
+  modalNames.forEach(name => {
+    const backdrop = document.getElementById(`${name}-modal`);
+    const modalClose = document.getElementById(`${name}-close`);
+    if (!backdrop || !modalClose) return;
+    document.querySelectorAll(`[data-opens-${name}]`).forEach(el => {
+      el.addEventListener('click', event => {
+        event.preventDefault();
+        openModal(backdrop, modalClose);
+      });
+    });
+    modalClose.addEventListener('click', () => closeModal(backdrop));
+    backdrop.addEventListener('click', event => {
+      if (event.target === backdrop) closeModal(backdrop);
+    });
   });
 
   
@@ -94,7 +111,7 @@
     setTabsOpen(false);
     if (isFullscreen()) exitFullscreen();
     player.removeAttribute('data-open');
-    if (!backdrop.hasAttribute('data-open')) document.body.removeAttribute('data-locked');
+    if (!document.querySelector('.modal-backdrop[data-open]')) document.body.removeAttribute('data-locked');
     currentHtml = null;
     currentId = null;
     downloadBtn.disabled = true;
@@ -236,6 +253,6 @@
     if (event.key !== 'Escape') return;
     if (tabs.classList.contains('open')) setTabsOpen(false);
     else if (player.hasAttribute('data-open')) closePlayer();
-    else if (backdrop.hasAttribute('data-open')) closeCredits();
+    else closeAnyModal();
   });
 }());
