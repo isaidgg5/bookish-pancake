@@ -236,6 +236,19 @@ def subpage_markup(path: Path, name: str) -> str:
     return re.sub(r"<h([12])(?![^>]*\bid=)", f'<h\\1 id="{name}-heading"', body, count=1)
 
 
+def rewrite_footer(html: str) -> str:
+    """Swap the footer link row for plain text: dmca + made with <3."""
+    pattern = re.compile(r"""<div class="footer-links">.*?</div>""", re.I | re.S)
+    replacement = """<div class="footer-links">
+        <span>dmca</span> |
+        <span>made with &lt;3</span>
+    </div>"""
+    html, count = pattern.subn(replacement, html)
+    if not count:
+        print("warning: no footer-links div found in index.html", file=sys.stderr)
+    return html
+
+
 def drop_request_link(html: str) -> str:
     """Drop the request form link: the form does not ship in lite.html."""
     pattern = re.compile(
@@ -327,6 +340,7 @@ def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
     for page in ("credits", "changelog"):
         html = subpage_link_to_button(html, page)
     html = drop_request_link(html)
+    html = rewrite_footer(html)
     if embed:
         html = inline_html_assets(html)
     else:
