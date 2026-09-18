@@ -105,15 +105,59 @@
     line-height: 1.4;
 }
 
-/* Short notice modal: readable spacing and a link color that works on the
-   dark modal background. */
-#dmca-modal p {
-    margin: 10px 0;
-    line-height: 1.5;
+/* The site's own DMCA notice is a light warning panel (the .welcome-modal in
+   the redesign's index.html): #fdfaf1 pane, #6a7a51 offset shadow, brick-red
+   close button. lite injects a player.js-driven modal instead, so these
+   overrides dress that copy up the same way, keeping dmca looking like the
+   redesign's HEAD rather than the dark subpage modals. */
+#dmca-modal {
+    background-color: rgba(43, 43, 43, 0.55);
 }
 
-#dmca-modal a {
-    color: var(--ctp-lavender);
+#dmca-modal .modal {
+    background-color: #fdfaf1;
+    border: 2px solid #8c826b;
+    border-radius: 0;
+    box-shadow: 5px 5px 0 #6a7a51;
+    color: #2b2b2b;
+    max-width: 480px;
+    padding: 28px;
+    text-align: left;
+}
+
+#dmca-modal .modal h2 {
+    color: #2b2b2b;
+    font-family: inherit;
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+#dmca-modal .modal p {
+    color: #2b2b2b;
+    line-height: 1.5;
+    margin: 0 0 12px;
+}
+
+#dmca-modal .modal a {
+    color: #1b4b72;
+}
+
+#dmca-modal .modal-close {
+    border: 1px solid #8e3924;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 7px 10px;
+    position: absolute;
+    right: 12px;
+    top: 12px;
+}
+
+#dmca-modal .modal-close:hover {
+    background-color: #8e3924;
+    color: #ffffff;
 }
 
 .modal h1 {
