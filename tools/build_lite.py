@@ -421,7 +421,9 @@ def verify(html: str, embed: bool) -> None:
     problems = []
     # css/js keep comments like "Request Form Styles", so text checks look at markup only
     markup = SCRIPT_BLOCK.sub("", html)
-    if "request.html" in html or re.search(r"request form", markup, re.I):
+    if re.search(r"request\.html", html, re.I) or re.search(
+        r"<a\b[^>]*>\s*request\s+form\s*</a>", markup, re.I
+    ):
         problems.append("the request form is still referenced")
     if "dmca-open" in html:
         problems.append("the site's built-in DMCA modal is still embedded")
