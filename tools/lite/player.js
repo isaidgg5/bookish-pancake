@@ -68,7 +68,7 @@
 
   function rewriteAbsolutePaths(html, cdnOrigin) {
     return html
-      .replace(/((?:src|href|action|data-[\w-]+)\s*=\s*(["']))\/(?!\/)/g, `$1$2${cdnOrigin}/`)
+      .replace(/((?:src|href|action|data-[\w-]+)\s*=\s*)(["'])\/(?!\/)/g, `$1$2${cdnOrigin}/`)
       .replace(/url\(\s*(["']?)\/(?!\/)/g, `url($1${cdnOrigin}/`);
   }
 
@@ -128,7 +128,7 @@
     writeToFrame(message(name || 'Loading...', 'Fetching the game.'));
 
     const baseUrl = gameCdns[cdn] || gameCdns.main;
-    const pageUrl = `${baseUrl}/${id}/index.html`;
+    const pageUrl = `${baseUrl}/${id}/index.html?time=${Date.now()}`;
     fetch(pageUrl)
       .then(res => {
         if (!res.ok) throw new Error(`Could not find game at ${pageUrl}`);
