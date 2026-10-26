@@ -5,7 +5,7 @@ Expects a copy of the site in src/ and writes lite.html to the repo root.
 
 How lite.html differs from the multi-page site:
   * one file -- css, js, fonts, cursor and logo are inlined
-  * every subpage (credits, changelog, request) opens in a modal
+  * every subpage (credits, changelog, settings) opens in a modal
     instead of on its own page
   * games play in an in-page overlay, since iframe.html is not there to link to
 
@@ -56,6 +56,9 @@ LOADER_TAG = re.compile(
 QUOTE_TAG = re.compile(
     r"""[ \t]*<script[^>]+src=["'][^"']*js/quote\.js["'][^>]*>\s*</script>\n?""", re.I
 )
+SETTINGS_TAG = re.compile(
+    r"""[ \t]*<script[^>]+src=["'][^"']*js/settings\.js["'][^>]*>\s*</script>\n?""", re.I
+)
 ANALYTICS_TAG = re.compile(r"""[ \t]*<script[^>]+counter\.dev[^>]*>\s*</script>\n?""", re.I)
 # The redesign ships its own DMCA modal (a .welcome-modal backed by an inline
 # script) so the footer "dmca" button works on the real site. lite injects its
@@ -79,9 +82,11 @@ SOURCES = (
     "index.html",
     "credits.html",
     "changelog.html",
+    "settings.html",
     "css/styles.css",
     "js/loader.js",
     "js/iframe.js",
+    "js/settings.js",
 )
 # Optional: only the redesign carries rotating header quotes.
 OPTIONAL_SOURCES = ("js/quote.js",)
@@ -322,10 +327,11 @@ def modal_markup(name: str, content: str, wide: bool = False) -> str:
 """
 
 
-def overlay_markup(credits: str, changelog: str, dmca: str) -> str:
+def overlay_markup(credits: str, changelog: str, settings: str, dmca: str) -> str:
     return (
         modal_markup("credits", credits)
         + modal_markup("changelog", changelog, wide=True)
+        + modal_markup("settings", settings, wide=True)
         + modal_markup("dmca", dmca)
         + """<div class="player" id="game-player">
   <button type="button" class="player-exit" id="player-exit">&larr; back</button>
@@ -367,7 +373,7 @@ def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
     if not analytics:
         html = ANALYTICS_TAG.sub("", html)
 
-    for page in ("credits", "changelog"):
+    for page in ("credits", "changelog", "settings"):
         html = subpage_link_to_button(html, page)
     html = drop_request_link(html)
     html = rewrite_footer(html)
@@ -404,12 +410,19 @@ def build(out_dir: Path, embed: bool, minify: bool, analytics: bool) -> str:
     scripts = overlay_markup(
         subpage_markup(SRC / "credits.html", "credits"),
         subpage_markup(SRC / "changelog.html", "changelog"),
+        subpage_markup(SRC / "settings.html", "settings"),
         read(TEMPLATES / "dmca.html"),
     ) + f"\n<script>\n{read(SRC / 'js' / 'loader.js')}\n</script>\n"
     quote_path = SRC / "js" / "quote.js"
     if quote_path.is_file():
         scripts += f"<script>\n{read(quote_path)}\n</script>\n"
     html = QUOTE_TAG.sub("", html)
+    settings_script = read(SRC / "js" / "settings.js")
+    html, count = SETTINGS_TAG.subn(
+        lambda _: f"<script>\n{settings_script}\n</script>\n", html, count=1
+    )
+    if not count:
+        sys.exit("index.html: no settings.js tag to replace")
     scripts += f"<script>\n{player}\n</script>\n"
     html, count = LOADER_TAG.subn(lambda _: scripts, html, count=1)
     if not count:
@@ -427,20 +440,23 @@ def verify(html: str, embed: bool) -> None:
         problems.append("the request form is still referenced")
     if "dmca-open" in html:
         problems.append("the site's built-in DMCA modal is still embedded")
-    for page in ("credits", "changelog"):
+    for page in ("credits", "changelog", "settings"):
         if f"{page}.html" in html:
             problems.append(f"the {page} page is still linked")
     if LOCAL_STYLESHEET_TAG.search(html):
         problems.append("a local stylesheet is still linked instead of inlined")
-    if re.search(r"""<script[^>]+src=["'](?!https?:)""", html, re.I):
+    if re.search(r"""<script[^>]+src=["'](?!https?:)""", markup, re.I):
         problems.append("a local script is still linked instead of inlined")
     for required in (
         'id="credits-modal"',
         'id="changelog-modal"',
+        'id="settings-modal"',
         'id="dmca-modal"',
         "data-opens-credits",
         "data-opens-changelog",
+        "data-opens-settings",
         "data-opens-dmca",
+        'id="ads-toggle"',
         'id="gameframe"',
         'id="game-count"',
         "filterGames",

@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      # sparse blobless clone of the ten files the bundler reads, into src/.
+      # sparse blobless clone of the files the bundler reads, into src/.
       # caesium is private and GITHUB_TOKEN cannot read another repo, so this
       # needs GH_TOKEN: a fine-grained PAT with read-only Contents on
       # gays-studio/caesium, stored as a repository secret on this repo.
@@ -37,7 +37,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: sh tools/fetch_src.sh
 
-      # fails the run if the bundle is missing the credits modal, still points at
+      # fails the run if the bundle is missing a modal, still points at
       # the request form, or left a local file unembedded
       - name: bundle
         run: python tools/build_lite.py -o lite.html

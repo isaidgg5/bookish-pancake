@@ -3,7 +3,7 @@
   const gameCdns = __GAME_CDNS__;
 
   
-  const modalNames = ['credits', 'changelog', 'dmca'];
+  const modalNames = ['credits', 'changelog', 'settings', 'dmca'];
   let lastFocused = null;
 
   function openModal(backdrop, closeBtn) {

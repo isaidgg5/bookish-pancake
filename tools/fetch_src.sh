@@ -52,11 +52,13 @@ git -C "$dest" sparse-checkout set --no-cone --stdin <<'PATTERNS'
 /index.html
 /credits.html
 /changelog.html
+/settings.html
 /comic.cur
 /css/styles.css
 /js/loader.js
 /js/iframe.js
 /js/quote.js
+/js/settings.js
 /fonts/main.ttf
 /fonts/bold.ttf
 /img/cube-459.png
