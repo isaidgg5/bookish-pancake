@@ -881,7 +881,7 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
 
   
   const player = document.getElementById('game-player');
-  const frame = document.getElementById('gameframe');
+  let frame = document.getElementById('gameframe');
   const exit = document.getElementById('player-exit');
   const tabs = document.getElementById('tabs');
   const handle = document.getElementById('tabs-handle');
@@ -910,15 +910,30 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
       html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: auto !important; }
       body > * { max-width: 100% !important; }
     </style>`;
+    const historyGuard = `<script>
+    (function() {
+      var orig = { rs: history.replaceState, ps: history.pushState };
+      history.replaceState = function() {
+        try { return orig.rs.apply(history, arguments); } catch(e) {}
+      };
+      history.pushState = function() {
+        try { return orig.ps.apply(history, arguments); } catch(e) {}
+      };
+    })();
+  <\/script>`;
     let modified = rewriteAbsolutePaths(html, cdnOrigin);
     const hasBaseHref = /<base\b[^>]*\bhref[\s=]/i.test(modified);
     if (hasBaseHref) {
-      return `${forcedStyles}${modified}`;
+      return `${historyGuard}${forcedStyles}${modified}`;
     }
-    return `<base href="${baseHref}">${forcedStyles}${modified}`;
+    return `<base href="${baseHref}">${historyGuard}${forcedStyles}${modified}`;
   }
 
   function writeToFrame(html) {
+    const newFrame = frame.cloneNode(false);
+    frame.replaceWith(newFrame);
+    frame = newFrame;
+
     const doc = frame.contentDocument || frame.contentWindow.document;
     doc.open();
     doc.write(html);
@@ -957,11 +972,15 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
 
   function navigateFrame(pageUrl) {
     if (pageUrl === currentPageUrl) return;
-    loadPage(pageUrl).catch(err => {
+
+    let url = new URL(pageUrl);
+    url.searchParams.set('time', Date.now());
+
+    loadPage(url.href).catch(err => {
       console.error('Loading error:', err);
       currentHtml = null;
       downloadBtn.disabled = true;
-      writeToFrame(message('Game Load Failed', `${pageUrl} &mdash; ${err.message}`));
+      writeToFrame(message('Game Load Failed', `${url.href} &mdash; ${err.message}`));
     });
   }
 
