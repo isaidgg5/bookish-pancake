@@ -1,6 +1,11 @@
 
 (function () {
   const gameCdns = __GAME_CDNS__;
+  const cdnReady = window.CaesiumCdn ? window.CaesiumCdn.ready : Promise.resolve();
+
+  function cdnUrl(url) {
+    return window.CaesiumCdn ? window.CaesiumCdn.url(url) : url;
+  }
 
   
   const modalNames = ['credits', 'changelog', 'settings', 'dmca'];
@@ -67,14 +72,34 @@
   let currentCdn = null;
   let currentName = null;
 
+  function rewriteCdnUrls(html) {
+    return html
+      .replace(/((?:src|href|action|data-[\w-]+)\s*=\s*)(["'])([^"']+)\2/g, function (match, prefix, quote, url) {
+        const fixed = cdnUrl(url);
+        return fixed === url ? match : `${prefix}${quote}${fixed}${quote}`;
+      })
+      .replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g, function (match, quote, url) {
+        const fixed = cdnUrl(url);
+        return fixed === url ? match : `url(${quote}${fixed}${quote})`;
+      });
+  }
+
   function rewriteAbsolutePaths(html, cdnOrigin) {
     return html
       .replace(/((?:src|href|action|data-[\w-]+)\s*=\s*)(["'])\/(?!\/)/g, `$1$2${cdnOrigin}/`)
       .replace(/url\(\s*(["']?)\/(?!\/)/g, `url($1${cdnOrigin}/`);
   }
 
+  function cdnPatchScript() {
+    if (!window.__jsdelivrInjectScript) return '';
+    const domain = JSON.stringify(window.__jsdelivrWorkingDomain || null);
+    const type = JSON.stringify(window.__jsdelivrWorkingType || null);
+    return `<script>window.__jsdelivrWorkingDomain=${domain};window.__jsdelivrWorkingType=${type};${window.__jsdelivrInjectScript}<\/script>`;
+  }
+
   function prepareHtml(html, baseHref) {
     const cdnOrigin = new URL(baseHref).origin;
+    const cdnGuard = cdnPatchScript();
     const forcedStyles = `
     <style>
       html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: auto !important; }
@@ -91,12 +116,12 @@
       };
     })();
   <\/script>`;
-    let modified = rewriteAbsolutePaths(html, cdnOrigin);
+    let modified = rewriteAbsolutePaths(rewriteCdnUrls(html), cdnOrigin);
     const hasBaseHref = /<base\b[^>]*\bhref[\s=]/i.test(modified);
     if (hasBaseHref) {
-      return `${historyGuard}${forcedStyles}${modified}`;
+      return `${cdnGuard}${historyGuard}${forcedStyles}${modified}`;
     }
-    return `<base href="${baseHref}">${historyGuard}${forcedStyles}${modified}`;
+    return `<base href="${baseHref}">${cdnGuard}${historyGuard}${forcedStyles}${modified}`;
   }
 
   function writeToFrame(html) {
@@ -141,6 +166,7 @@
   }
 
   function navigateFrame(pageUrl) {
+    pageUrl = cdnUrl(pageUrl);
     if (pageUrl === currentPageUrl) return;
 
     let url = new URL(pageUrl);
@@ -159,6 +185,10 @@
         <h2 style="color:#cba6f7;">${title}</h2>
         <p style="color:#666;">${detail}</p>
       </body></html>`;
+  }
+
+  function loadingPage() {
+    return '<html><body style="margin:0;padding:20px;font-family:sans-serif;color:#fff;background:#111;display:flex;align-items:center;justify-content:center;height:100vh;">loading..</body></html>';
   }
 
   function openPlayer() {
@@ -180,6 +210,7 @@
   }
 
   function loadPage(pageUrl) {
+    pageUrl = cdnUrl(pageUrl);
     currentPageUrl = pageUrl;
     currentHtml = null;
     downloadBtn.disabled = true;
@@ -197,22 +228,26 @@
       });
   }
 
-  function loadGame(id, cdn, name) {
+  async function loadGame(id, cdn, name) {
     currentId = id;
     currentCdn = cdn;
     currentName = name;
     currentHtml = null;
     downloadBtn.disabled = true;
     openPlayer();
-    writeToFrame(message(name || 'Loading...', 'Fetching the game.'));
+    writeToFrame(loadingPage());
 
-    const baseUrl = gameCdns[cdn] || gameCdns.main;
+    await cdnReady;
+
+    const baseUrl = cdnUrl(gameCdns[cdn] || gameCdns.main);
     const pageUrl = `${baseUrl}/${id}/index.html?time=${Date.now()}`;
 
-    loadPage(pageUrl).catch(err => {
+    try {
+      await loadPage(pageUrl);
+    } catch (err) {
       console.error('Loading error:', err);
       writeToFrame(message('Game Load Failed', `${id} &mdash; ${err.message}`));
-    });
+    }
   }
 
   
