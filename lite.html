@@ -892,6 +892,7 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
 
   
   let currentHtml = null;
+  let currentPageUrl = null;
   let currentId = null;
   let currentCdn = null;
   let currentName = null;
@@ -922,6 +923,46 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
     doc.open();
     doc.write(html);
     doc.close();
+    interceptFrameNavigation(doc);
+  }
+
+  function interceptFrameNavigation(doc) {
+    doc.addEventListener('click', event => {
+      if (event.defaultPrevented || event.button !== 0 ||
+          event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+
+      const anchor = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+      if (!anchor) return;
+      if (anchor.target && anchor.target !== '_self') return;
+      if (anchor.hasAttribute('download')) return;
+
+      const href = anchor.getAttribute('href');
+      if (!href || href.startsWith('#')) return;
+
+      let url;
+      try {
+        url = new URL(anchor.href, doc.baseURI);
+      } catch (err) {
+        return;
+      }
+
+      if (!/^https?:$/.test(url.protocol)) return;
+      if (!currentPageUrl || url.origin !== new URL(currentPageUrl).origin) return;
+      if (!url.pathname.endsWith('/') && !/\.html?$/i.test(url.pathname)) return;
+
+      event.preventDefault();
+      navigateFrame(url.href);
+    }, true);
+  }
+
+  function navigateFrame(pageUrl) {
+    if (pageUrl === currentPageUrl) return;
+    loadPage(pageUrl).catch(err => {
+      console.error('Loading error:', err);
+      currentHtml = null;
+      downloadBtn.disabled = true;
+      writeToFrame(message('Game Load Failed', `${pageUrl} &mdash; ${err.message}`));
+    });
   }
 
   function message(title, detail) {
@@ -943,9 +984,28 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
     player.removeAttribute('data-open');
     if (!document.querySelector('.modal-backdrop[data-open]')) document.body.removeAttribute('data-locked');
     currentHtml = null;
+    currentPageUrl = null;
     currentId = null;
     downloadBtn.disabled = true;
     writeToFrame('<html><body style="background:#11111b"></body></html>');
+  }
+
+  function loadPage(pageUrl) {
+    currentPageUrl = pageUrl;
+    currentHtml = null;
+    downloadBtn.disabled = true;
+
+    return fetch(pageUrl)
+      .then(res => {
+        if (!res.ok) throw new Error(`Could not find game at ${pageUrl}`);
+        return res.text();
+      })
+      .then(html => {
+        const baseHref = pageUrl.substring(0, pageUrl.lastIndexOf('/') + 1);
+        currentHtml = prepareHtml(html, baseHref);
+        writeToFrame(currentHtml);
+        downloadBtn.disabled = false;
+      });
   }
 
   function loadGame(id, cdn, name) {
@@ -959,21 +1019,11 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
 
     const baseUrl = gameCdns[cdn] || gameCdns.main;
     const pageUrl = `${baseUrl}/${id}/index.html?time=${Date.now()}`;
-    fetch(pageUrl)
-      .then(res => {
-        if (!res.ok) throw new Error(`Could not find game at ${pageUrl}`);
-        return res.text();
-      })
-      .then(html => {
-        const baseHref = pageUrl.substring(0, pageUrl.lastIndexOf('/') + 1);
-        currentHtml = prepareHtml(html, baseHref);
-        writeToFrame(currentHtml);
-        downloadBtn.disabled = false;
-      })
-      .catch(err => {
-        console.error('Loading error:', err);
-        writeToFrame(message('Game Load Failed', `${id} &mdash; ${err.message}`));
-      });
+
+    loadPage(pageUrl).catch(err => {
+      console.error('Loading error:', err);
+      writeToFrame(message('Game Load Failed', `${id} &mdash; ${err.message}`));
+    });
   }
 
   
@@ -1055,7 +1105,16 @@ var a0_0x27b97e=a0_0x5104;function a0_0x5104(_0x5305b5,_0x21c62f){_0x5305b5=_0x5
   fullscreenBtn.addEventListener('click', toggleFullscreen);
   downloadBtn.addEventListener('click', downloadHtml);
   reloadBtn.addEventListener('click', () => {
-    if (currentId) loadGame(currentId, currentCdn, currentName);
+    if (currentPageUrl) {
+      loadPage(currentPageUrl).catch(err => {
+        console.error('Loading error:', err);
+        currentHtml = null;
+        downloadBtn.disabled = true;
+        writeToFrame(message('Game Load Failed', `${currentPageUrl} &mdash; ${err.message}`));
+      });
+    } else if (currentId) {
+      loadGame(currentId, currentCdn, currentName);
+    }
     setTabsOpen(false);
   });
 
