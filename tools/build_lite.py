@@ -434,6 +434,13 @@ def verify(html: str, embed: bool) -> None:
     problems = []
     # css/js keep comments like "Request Form Styles", so text checks look at markup only
     markup = SCRIPT_BLOCK.sub("", html)
+    header = html.split("</head>", 1)[0]
+    for required in (
+        "window.CaesiumCdn",
+        "window.__jsdelivrReadyPromise",
+    ):
+        if required not in header:
+            problems.append(f"header is missing {required}")
     if re.search(r"request\.html", html, re.I) or re.search(
         r"<a\b[^>]*>\s*request\s+form\s*</a>", markup, re.I
     ):
@@ -460,9 +467,15 @@ def verify(html: str, embed: bool) -> None:
         'id="gameframe"',
         'id="game-count"',
         "filterGames",
+        "window.__jsdelivrInjectScript",
+        "loadingPage",
     ):
         if required not in html:
             problems.append(f"missing {required}")
+    if "loading.." not in html:
+        problems.append("the lite loading page is missing")
+    if "Fetching the game" in html:
+        problems.append("the old loading message is still present")
     # the bundled scripts and the markup they drive come from different files
     for element_id in sorted(set(re.findall(r"""getElementById\(['"]([\w-]+)['"]\)""", html))):
         if f'id="{element_id}"' not in markup:
