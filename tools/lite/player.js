@@ -90,16 +90,8 @@
       .replace(/url\(\s*(["']?)\/(?!\/)/g, `url($1${cdnOrigin}/`);
   }
 
-  function cdnPatchScript() {
-    if (!window.__jsdelivrInjectScript) return '';
-    const domain = JSON.stringify(window.__jsdelivrWorkingDomain || null);
-    const type = JSON.stringify(window.__jsdelivrWorkingType || null);
-    return `<script>window.__jsdelivrWorkingDomain=${domain};window.__jsdelivrWorkingType=${type};${window.__jsdelivrInjectScript}<\/script>`;
-  }
-
   function prepareHtml(html, baseHref) {
     const cdnOrigin = new URL(baseHref).origin;
-    const cdnGuard = cdnPatchScript();
     const forcedStyles = `
     <style>
       html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; overflow: auto !important; }
@@ -119,9 +111,9 @@
     let modified = rewriteAbsolutePaths(rewriteCdnUrls(html), cdnOrigin);
     const hasBaseHref = /<base\b[^>]*\bhref[\s=]/i.test(modified);
     if (hasBaseHref) {
-      return `${cdnGuard}${historyGuard}${forcedStyles}${modified}`;
+      return `${historyGuard}${forcedStyles}${modified}`;
     }
-    return `<base href="${baseHref}">${cdnGuard}${historyGuard}${forcedStyles}${modified}`;
+    return `<base href="${baseHref}">${historyGuard}${forcedStyles}${modified}`;
   }
 
   function writeToFrame(html) {
@@ -215,16 +207,21 @@
     currentHtml = null;
     downloadBtn.disabled = true;
 
-    return fetch(pageUrl)
-      .then(res => {
-        if (!res.ok) throw new Error(`Could not find game at ${pageUrl}`);
-        return res.text();
-      })
-      .then(html => {
-        const baseHref = pageUrl.substring(0, pageUrl.lastIndexOf('/') + 1);
-        currentHtml = prepareHtml(html, baseHref);
-        writeToFrame(currentHtml);
-        downloadBtn.disabled = false;
+    const request = window.CaesiumCdn
+      ? window.CaesiumCdn.load(pageUrl)
+      : fetch(pageUrl).then(res => ({ url: pageUrl, response: res }));
+
+    return request
+      .then(result => {
+        if (!result.response.ok) throw new Error(`Could not find game at ${result.url}`);
+        const resolvedUrl = result.url;
+        currentPageUrl = resolvedUrl;
+        return result.response.text().then(html => {
+          const baseHref = resolvedUrl.substring(0, resolvedUrl.lastIndexOf('/') + 1);
+          currentHtml = prepareHtml(html, baseHref);
+          writeToFrame(currentHtml);
+          downloadBtn.disabled = false;
+        });
       });
   }
 

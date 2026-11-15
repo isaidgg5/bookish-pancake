@@ -436,8 +436,7 @@ def verify(html: str, embed: bool) -> None:
     markup = SCRIPT_BLOCK.sub("", html)
     header = html.split("</head>", 1)[0]
     for required in (
-        "window.CaesiumCdn",
-        "window.__jsdelivrReadyPromise",
+        "CaesiumCdn",
     ):
         if required not in header:
             problems.append(f"header is missing {required}")
@@ -467,7 +466,7 @@ def verify(html: str, embed: bool) -> None:
         'id="gameframe"',
         'id="game-count"',
         "filterGames",
-        "window.__jsdelivrInjectScript",
+        "CaesiumCdn.load",
         "loadingPage",
     ):
         if required not in html:
